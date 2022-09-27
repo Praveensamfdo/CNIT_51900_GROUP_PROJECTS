@@ -4,5 +4,5 @@
 - Activate the virtual environment using the following command: `conda activate ./envs` (use `conda deactivate` to exit from the virtual environment).
 
 - Create `model` and `embeddings` folders in the base directory.
-- Download the pretrained word embeddings glove.6B.100d.txt [https://nlp.stanford.edu/data/glove.6B.zip]. Put the file in `embeddings` folder.
+- Download the pretrained word embeddings [glove.6B.100d.txt](https://nlp.stanford.edu/data/glove.6B.zip "glove.6B.100d.txt"). Put the file in `embeddings` folder.
 - Run `python3 final.py` for training and inference.
