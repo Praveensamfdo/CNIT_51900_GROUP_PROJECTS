@@ -1,3 +1,4 @@
+## Reproducibility steps
 - Download the repository.
 - It is recommended to use a virtual environment to run this project.
 - Create a virtual environment in the base directory using the following command: `conda env create  -f environment.yml --prefix ./envs`.
@@ -8,6 +9,6 @@
 - Run `python3 final.py` for training and inference.
 
 
-
+## References
 - Original code: https://github.com/zoezou2015/PunLocation
 - Paper: https://arxiv.org/pdf/1909.00175.pdf
