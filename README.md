@@ -6,3 +6,8 @@
 - Create `model` and `embeddings` folders in the base directory.
 - Download the pretrained word embeddings [glove.6B.100d.txt](https://nlp.stanford.edu/data/glove.6B.zip "glove.6B.100d.txt"). Put the file in `embeddings` folder.
 - Run `python3 final.py` for training and inference.
+
+
+
+- Original code: https://github.com/zoezou2015/PunLocation
+- Paper: https://arxiv.org/pdf/1909.00175.pdf
