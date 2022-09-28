@@ -8,6 +8,8 @@
 - Download the pretrained word embeddings [glove.6B.100d.txt](https://nlp.stanford.edu/data/glove.6B.zip "glove.6B.100d.txt"). Put the file in `embeddings` folder.
 - Run `python3 final.py` for training and inference.
 
+## Transformer-based pun detection and location
+- A transformer based implementation can be found on `temp.py` (for training), and `tok.py` (for inference).
 
 ## References
 - Original code: https://github.com/zoezou2015/PunLocation
