@@ -13,5 +13,4 @@
 - Inference: `python3 pun_loc_inf.py`
 
 ## References
-- Original code: https://github.com/zoezou2015/PunLocation
-- Paper: https://arxiv.org/pdf/1909.00175.pdf
+- https://arxiv.org/pdf/1909.00175.pdf
