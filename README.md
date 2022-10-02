@@ -5,11 +5,14 @@
     - Activate the virtual environment using the following command: `conda activate ./envs` (use `conda deactivate` to exit from the virtual environment).
 
 - Create `model` and `embeddings` folders in the base directory.
-- Download the pretrained word embeddings [glove.6B.100d.txt](https://nlp.stanford.edu/data/glove.6B.zip "glove.6B.100d.txt"). Put the file in `embeddings` folder.
-- Run `python3 final.py` for training and inference.
 
-## Transformer-based pun detection and location
-- A transformer based implementation can be found on `temp.py` (for training), and `tok.py` (for inference).
+## Transformer-based pun detection
+- Training: `python3 pun_detect.py`.
+- Inference: `python3 pun_detect_inf.py`
+
+## Transformer-based pun location
+- Training: `python3 pun_loc.py`.
+- Inference: `python3 pun_loc_inf.py`
 
 ## References
 - Original code: https://github.com/zoezou2015/PunLocation
