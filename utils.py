@@ -323,7 +323,6 @@ def create_input_tensors(words, tags, word_map, char_map, tag_map, pos_mask, mas
     return padded_wmaps, padded_cmaps_f, padded_cmaps_b, padded_cmarkers_f, padded_cmarkers_b, padded_tmaps, \
            wmap_lengths, cmap_lengths, padded_pos_maps
 
-
 def init_embedding(input_embedding):
     """
     Initialize embedding tensor with values from the uniform distribution.

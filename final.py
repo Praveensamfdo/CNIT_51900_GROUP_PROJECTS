@@ -26,6 +26,8 @@ def main(fold, task, batch_size, epoch):
     config.min_word_freq = 1
     config.min_char_freq = 1
 
+    print(config)
+
     global best_f1, epochs_since_improvement, checkpoint, start_epoch, word_map, char_map, tag_map
     global sentences, tags, pos_mask
     sentences, tags, pos_mask = load_sentences(config.path1_test, config.path1_gold, config.path2_test, config.path2_gold, config.use_all_instances, isDebug=config.debug)
