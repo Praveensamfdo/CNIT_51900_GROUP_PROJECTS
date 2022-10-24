@@ -9,6 +9,7 @@
 # Group project 01: Pun detection and location
 
 - A transformer-based approach has been used for pun detection and location.
+- Homographic puns have been considered for this task.
 
 ## Transformer-based pun detection
 - Training: `python3 pun_detect.py`.
