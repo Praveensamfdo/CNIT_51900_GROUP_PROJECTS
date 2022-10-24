@@ -22,3 +22,8 @@
 
 ## References
 - https://arxiv.org/pdf/1909.00175.pdf
+
+# Group project 02
+
+- heterographic puns (where the pun and its latent target are phonologically similar) have been considered for this task.
+- Use `temp.py` to play with the heterographic puns in SemEval 2017 dataset.
