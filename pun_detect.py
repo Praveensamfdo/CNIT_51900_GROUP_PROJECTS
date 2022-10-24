@@ -35,10 +35,10 @@ os.environ['PYTHONHASHSEED'] = str(seed)
 # Data preparation methods
 
 def data_prep(test_percent, processed_data):
-    if os.path.exists(processed_data + "/train_data_det.pkl") and os.path.exists(processed_data + "/test_data_det.pkl"):
-        with open(processed_data + "/train_data_det.pkl", "rb") as f:
+    if os.path.exists(processed_data + "/train_data_homo.pkl") and os.path.exists(processed_data + "/test_data_homo.pkl"):
+        with open(processed_data + "/train_data_homo.pkl", "rb") as f:
             train_data = pickle.load(f)
-        with open(processed_data + "/test_data_det.pkl", "rb") as f:
+        with open(processed_data + "/test_data_homo.pkl", "rb") as f:
             test_data = pickle.load(f)
     
     else:
@@ -78,10 +78,10 @@ def data_prep(test_percent, processed_data):
         test_data = all_data[int(len(all_data) * percent):]
 
         # Save train and test data as pkls
-        with open(processed_data + "/train_data_det.pkl", "wb") as f:
+        with open(processed_data + "/train_data_homo.pkl", "wb") as f:
             pickle.dump(train_data, f)
 
-        with open(processed_data + "/test_data_det.pkl", "wb") as f:
+        with open(processed_data + "/test_data_homo.pkl", "wb") as f:
             pickle.dump(test_data, f)
 
     return train_data, test_data
