@@ -16,6 +16,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-5
 EPOCHS = 1000
+PROCESSED_DATA = 'processed_data'
 
 ############################################################################################################
 # Set the seed for reproducibility
@@ -33,11 +34,11 @@ os.environ['PYTHONHASHSEED'] = str(seed)
 ############################################################################################################
 # Data preparation methods
 
-def data_prep():
-    if os.path.exists("train_data_det.pkl") and os.path.exists("test_data_det.pkl"):
-        with open("train_data_det.pkl", "rb") as f:
+def data_prep(test_percent, processed_data):
+    if os.path.exists(processed_data + "/train_data_det.pkl") and os.path.exists(processed_data + "/test_data_det.pkl"):
+        with open(processed_data + "/train_data_det.pkl", "rb") as f:
             train_data = pickle.load(f)
-        with open("test_data_det.pkl", "rb") as f:
+        with open(processed_data + "/test_data_det.pkl", "rb") as f:
             test_data = pickle.load(f)
     
     else:
@@ -72,15 +73,15 @@ def data_prep():
 
         # Randomize the data
         random.shuffle(all_data)
-        percent = 0.2
+        percent = test_percent
         train_data = all_data[:int(len(all_data) * percent)]
         test_data = all_data[int(len(all_data) * percent):]
 
         # Save train and test data as pkls
-        with open("train_data_det.pkl", "wb") as f:
+        with open(processed_data + "/train_data_det.pkl", "wb") as f:
             pickle.dump(train_data, f)
 
-        with open("test_data_det.pkl", "wb") as f:
+        with open(processed_data + "/test_data_det.pkl", "wb") as f:
             pickle.dump(test_data, f)
 
     return train_data, test_data
@@ -189,7 +190,7 @@ checkpoint_callback = ModelCheckpoint(
 
 ############################################################################################################
 
-train_data, test_data = data_prep()
+train_data, test_data = data_prep(test_percent = 0.2, processed_data = PROCESSED_DATA)
 train_data_loc = PunDataset(train_data)
 test_data_loc = PunDataset(test_data)
 trainloader = torch.utils.data.DataLoader(train_data_loc, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, collate_fn = collate_fn)

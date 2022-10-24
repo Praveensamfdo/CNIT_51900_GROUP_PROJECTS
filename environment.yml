@@ -5,5 +5,8 @@ channels:
   - pytorch
 dependencies:
   - python=3.9
-  - pytorch=1.10.1
+  - pytorch=1.12.1
   - cudatoolkit=11.3
+  - torchmetrics=0.10.0
+  - pytorch-lightning=1.7.7
+  - transformers=4.23.1
