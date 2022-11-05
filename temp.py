@@ -1,11 +1,26 @@
 import os
+import re
+import csv
+import time
+import nltk
 import torch
 import pickle
 import random
 import numpy as np
+from tqdm import tqdm
 import xml.etree.ElementTree as ET
+from transformers import BertTokenizer, BertForMaskedLM
+nltk.download('cmudict')
+
+############################################################################################################
+# Constants and hyperparameters
 
 PROCESSED_DATA = 'processed_data'
+BERT_MOD = 'bert-large-uncased'
+
+tokenizer = BertTokenizer.from_pretrained(BERT_MOD)
+model = BertForMaskedLM.from_pretrained(BERT_MOD)
+model.eval()
 
 ############################################################################################################
 # Set the seed for reproducibility
@@ -24,80 +39,43 @@ os.environ['PYTHONHASHSEED'] = str(seed)
 # Data preparation methods
 
 def data_prep(test_percent, processed_data):
-    if os.path.exists(processed_data + "/train_data_hetero.pkl") and os.path.exists(processed_data + "/test_data_hetero.pkl"):
-        with open(processed_data + "/train_data_hetero.pkl", "rb") as f:
-            train_data = pickle.load(f)
-        with open(processed_data + "/test_data_hetero.pkl", "rb") as f:
-            test_data = pickle.load(f)
-    
-    else:
-        path1_test = 'datasets/subtask1-heterographic-test.xml'
-        path1_gold = 'datasets/subtask1-heterographic-test.gold'
-        path2_test = 'datasets/subtask2-heterographic-test.xml'
-        path2_gold =  'datasets/subtask2-heterographic-test.gold'
+    path3_test = 'datasets/subtask3-heterographic-test.xml'
+    path3_gold = 'datasets/subtask3-heterographic-test.gold'
 
-        all_instances = {}
-        pun_instances = {}
-        classes = {}
-        locations = {}
+    sent_dict = {}
+    src_tgt_dict = {}
 
-        tree1 = ET.parse(path1_test)
-        root1 = tree1.getroot()
+    # Get the pun sentences
 
-        for child in root1:
-            idx = child.attrib["id"]
-            line = []
-            for kid in child:
-                line.append(kid.text)
-            all_instances[idx] = line
+    tree3 = ET.parse(path3_test)
+    root3 = tree3.getroot()
 
-        with open(path1_gold) as gold1:
-            lines = gold1.readlines()
-            for line in lines:
-                token = line.strip().split("\t")
-                classes[token[0]] = token[1]
+    for child in root3:
+        idx = child.attrib["id"]
+        line = []
+        for kid in child:
+            line.append(kid.text)
 
-        tree2 = ET.parse(path2_test)
-        root2 = tree2.getroot()
+        sent_dict[idx] = line
 
-        for child in root2:
-            idx = child.attrib["id"]
-            line = []
-            for kid in child:
-                line.append(kid.text)
-            pun_instances[idx] = line
+    # Get the source and target puns
 
-        with open(path2_gold) as gold2:
-            lines = gold2.readlines()
-            for line in lines:
-                token = line.strip().split("\t")
-                sub_tokens = token[1].split("_")
-                locations[token[0]] = sub_tokens[2]
+    with open(path3_gold) as gold3:
+        lines = gold3.readlines()
+        for line in lines:
+            token = line.strip().split("\t")
+            _, idx, loc = token[0].split("_")
+            src = token[1].split('%')[0]
+            tgt = token[2].split('%')[0]
+            src_tgt_dict['het_' + str(idx)] = (src, tgt, int(loc))
 
-        all_data = []
+    all_data = []
 
-        for idx in all_instances.keys():
-            sentence = " ".join(all_instances[idx])
-            label = int(classes[idx])
-            pun_word = pun_instances[idx][int(locations[idx]) - 1] if label == 1 else None      # If the sentence is a pun, get the pun word, otherwise set it to None
-            pun_location = int(locations[idx]) - 1 if label == 1 else None                      # If there is no pun, set the location to None (pun location is 0-indexed)
-            all_data.append({"sentence": sentence, "label": label, "pun_word": pun_word, "pun_location": pun_location})
+    for key, sent_list in sent_dict.items():
+        all_data.append({"sentence": " ".join(sent_list), "src": sent_list[src_tgt_dict[key][2] - 1], "src_root": src_tgt_dict[key][0], "tgt_root": src_tgt_dict[key][1]})
 
-        # Randomize the data
-        random.shuffle(all_data)
-        percent = test_percent
-        train_data = all_data[:int(len(all_data) * percent)]
-        test_data = all_data[int(len(all_data) * percent):]
+    return all_data
 
-        # Save train and test data as pkls
-        with open(processed_data + "/train_data_hetero.pkl", "wb") as f:
-            pickle.dump(train_data, f)
-
-        with open(processed_data + "/test_data_hetero.pkl", "wb") as f:
-            pickle.dump(test_data, f)
-
-    return train_data, test_data
-    
 class PunDataset(torch.utils.data.Dataset):
     """
     data loader class
@@ -110,18 +88,128 @@ class PunDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         sample_item = self.dataset[idx]
-        label = sample_item['label']
-        label = torch.tensor(label, dtype=torch.long)
-        sample = {'sentence' : sample_item['sentence'], 'label' : label, 'pun_word' : sample_item['pun_word'], 'pun_location' : sample_item['pun_location']}
+        sample = {'sentence' : sample_item['sentence'], 'src' : sample_item['src'], 'src_root' : sample_item['src_root'], 'tgt_root' : sample_item['tgt_root']}
         return(sample)
 
 ############################################################################################################
+# Word similarity methods (inspired by: )
 
-train_data, test_data = data_prep(test_percent = 0.2, processed_data = PROCESSED_DATA)
-train_data_loc = PunDataset(train_data)
-test_data_loc = PunDataset(test_data)
+def edit_distance(w1, w2):
+    cost = np.zeros((len(w1) + 1, len(w2) + 1), dtype = np.int32)
+    
+    for i in range(1, len(w1) + 1):
+        cost[i][0] = i
 
-for idx, train in enumerate(train_data_loc):
-    print(train)
-    if idx == 10:
-        break
+    for j in range(1, len(w2) + 1):
+        cost[0][j] = j
+
+    cost = cost.tolist()
+
+    # Baseline costs
+    del_cost = 1
+    add_cost = 1
+    sub_cost = 2
+    
+    for i in range(1, len(w1) + 1):
+        for j in range(1, len(w2) + 1):
+            if w1[i-1] == w2[j-1]:
+                sub_cost = 0
+            else:
+                sub_cost = 2
+
+            # Get the totals
+            del_total = cost[i-1][j] + del_cost
+            add_total = cost[i][j-1] + add_cost
+            sub_total = cost[i-1][j-1] + sub_cost
+
+            # Choose the lowest cost from the options
+            options = [del_total, add_total, sub_total]
+            options.sort()
+            cost[i][j] = options[0]
+
+    return cost[-1][-1]
+
+class GetSimWords():
+    def __init__(self, max_diff):
+        self.max_diff = max_diff
+        prondict = nltk.corpus.cmudict.dict()                           # CMU Pronunciation Dictionary
+        word_dict = {}                                                  # Dictionary taken from PunchlineGenerator
+
+        with open('all_words.csv', 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                word_dict[row[0]] = [eval(row[1])]
+
+        self.final_prondict = prondict | word_dict                      # Final pronounciation dictionary
+        self.stemmer = nltk.stem.snowball.SnowballStemmer("english")    # Stemmer to find the root of a word
+
+    def sim_words(self, src_word):
+        sim_word_list = []
+
+        try:
+            src_pron = self.final_prondict[src_word][0] 
+            src_root = self.stemmer.stem(src)
+            
+            for word in self.final_prondict.keys():
+                word_root = self.stemmer.stem(word)
+                if word_root != src_root:
+                    word_pron = self.final_prondict[word][0] 
+                    price = edit_distance(src_pron, word_pron)
+                    if price <= self.max_diff:
+                        sim_word_list.append(word)
+
+        except:
+            pass
+
+        return sim_word_list
+
+word_sim = GetSimWords(2)
+
+############################################################################################################
+# Algorithm 1: target pun word prediction
+
+def get_target_pun(masked_sent, cand_list):
+    """
+    *** Algorithm 1 ***
+    * Inputs:
+        - masked_sent: the sentence with pun word masked
+        - cand_list: list of candidate pun words
+
+    * Outputs:
+        - pred_word: the predicted target pun word
+        - pred_sent: the predicted sentence with the target pun word
+    """
+    inputs = tokenizer(masked_sent, return_tensors="pt")
+    loss_arr = []
+
+    for cand in tqdm(cand_list):
+        sent_option = masked_sent.replace("[MASK]", cand)
+        labels = tokenizer(sent_option, return_tensors="pt")["input_ids"][0][:inputs.input_ids.shape[1]]
+        outputs = model(**inputs, labels=labels)
+        loss_arr.append(outputs.loss.item())
+
+    min_idx = torch.argmin(torch.tensor(loss_arr)).item()
+    pred_word = cand_list[min_idx]
+    pred_sent = masked_sent.replace('[MASK]', pred_word)
+
+    return pred_word, pred_sent
+    
+############################################################################################################
+
+all_data = data_prep(test_percent = 0.2, processed_data = PROCESSED_DATA)
+train_data_loc = PunDataset(all_data)
+
+for train in train_data_loc:
+    sent = train['sentence']
+    src = train['src']
+    tgt_root = train['tgt_root']
+    masked_sent = sent.replace(src, '[MASK]')
+    cand_list = word_sim.sim_words(src)
+
+    if cand_list != []:
+        target_pred_pun, target_sent = get_target_pun(masked_sent, cand_list)
+        print("Sentence: ", sent)
+        print("Source word: ", src)
+        print("Target root: ", tgt_root)
+        print("Predicted target: ", target_pred_pun)
+        print("===========================================================")
