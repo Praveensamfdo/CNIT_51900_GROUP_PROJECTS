@@ -4,12 +4,17 @@ import csv
 import time
 import nltk
 import torch
-import pickle
 import random
 import numpy as np
 from tqdm import tqdm
+from nltk.wsd import lesk
 import xml.etree.ElementTree as ET
+from nltk.corpus import wordnet
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 from transformers import BertTokenizer, BertForMaskedLM
+
+nltk.download('all')
 nltk.download('cmudict')
 
 ############################################################################################################
@@ -92,7 +97,7 @@ class PunDataset(torch.utils.data.Dataset):
         return(sample)
 
 ############################################################################################################
-# Word similarity methods (inspired by: )
+# Word similarity methods (inspired by: https://github.com/maxwell-schwartz/PUNchlineGenerator)
 
 def edit_distance(w1, w2):
     cost = np.zeros((len(w1) + 1, len(w2) + 1), dtype = np.int32)
@@ -148,8 +153,8 @@ class GetSimWords():
 
         try:
             src_pron = self.final_prondict[src_word][0] 
-            src_root = self.stemmer.stem(src)
-            
+            src_root = self.stemmer.stem(src_word)
+         
             for word in self.final_prondict.keys():
                 word_root = self.stemmer.stem(word)
                 if word_root != src_root:
@@ -164,6 +169,73 @@ class GetSimWords():
         return sim_word_list
 
 word_sim = GetSimWords(2)
+
+############################################################################################################    
+# LESK word sense disambiguation
+
+stopwords_en = set(stopwords.words('english'))
+
+def tokenize(document: str, word: str) -> set:
+    # obtaining tokens from the gloss
+    tokenizer = nltk.RegexpTokenizer(r'\w+')
+    tokens = tokenizer.tokenize(document)
+
+    # removing stop words from tokens
+    tokens = [token for token in tokens if token not in stopwords_en and token.isalpha()]
+
+    # removing the word from the tokens
+    tokens = [token for token in tokens if token != word]
+    return set(tokens)
+
+def simple_lesk(gloss: str, word: str):
+    """":returns the sense most suited to the given word as per the Simple LESK Algorithm"""
+
+    # converting everything to lowercase
+    gloss = gloss.lower()
+    word = word.lower()
+
+    # obtaining tokens from the gloss
+    gloss_tokens = tokenize(gloss, word)
+
+    # calculating the word sense disambiguation using simple LESK
+    synsets = wordnet.synsets(word)
+    weights = [0] * len(synsets)
+    N_t = len(synsets)
+    N_w = {}
+
+    # Creating the IDF Frequency column using Laplacian Scaling
+    for gloss_token in gloss_tokens:
+        N_w[gloss_token] = 1
+
+        for sense in synsets:
+            if gloss_token in sense.definition():
+                N_w[gloss_token] += N_t
+                continue
+
+            for example in sense.examples():
+                if gloss_token in example:
+                    N_w[gloss_token] += N_t
+                    break
+
+    for index, sense in enumerate(synsets):
+        # adding tokens from examples into the comparison set
+        comparison = set()
+        for example in sense.examples():
+            for token in tokenize(example, word):
+                comparison.add(token)
+
+        # adding tokens from definition into the comparison set
+        for token in tokenize(sense.definition(), word):
+            comparison.add(token)
+
+        # comparing the gloss tokens with comparison set
+        for token in gloss_tokens:
+            if token in comparison:
+                weights[index] += np.log(N_w[token] / N_t)
+
+    max_weight = max(weights)
+    index = weights.index(max_weight)
+    return synsets[index], weights
 
 ############################################################################################################
 # Algorithm 1: target pun word prediction
@@ -191,6 +263,7 @@ def get_target_pun(masked_sent, cand_list):
     min_idx = torch.argmin(torch.tensor(loss_arr)).item()
     pred_word = cand_list[min_idx]
     pred_sent = masked_sent.replace('[MASK]', pred_word)
+    pred_word = re.sub(r'[^\w\s]', '', pred_word)           # Replace any punctuations with ''
 
     return pred_word, pred_sent
     
@@ -198,8 +271,10 @@ def get_target_pun(masked_sent, cand_list):
 
 all_data = data_prep(test_percent = 0.2, processed_data = PROCESSED_DATA)
 train_data_loc = PunDataset(all_data)
+stemmer = nltk.stem.snowball.SnowballStemmer("english")
+cumulative_acc = 0
 
-for train in train_data_loc:
+for idx, train in enumerate(train_data_loc):
     sent = train['sentence']
     src = train['src']
     tgt_root = train['tgt_root']
@@ -211,5 +286,28 @@ for train in train_data_loc:
         print("Sentence: ", sent)
         print("Source word: ", src)
         print("Target root: ", tgt_root)
-        print("Predicted target: ", target_pred_pun)
+        print("\nPredicted target: ", target_pred_pun)
+
+        try:
+            sense, weights = simple_lesk(sent, src)
+            print("Source sense: ", sense.definition())
+        
+        except:
+            print("Source sense: ", None)
+
+        try:
+            sense, weights = simple_lesk(target_sent, target_pred_pun)
+            print("Target sense: ", sense.definition())
+
+        except:
+            print("Target sense: ", None)
+
+        tgt_stem = stemmer.stem(tgt_root)
+        pred_stem = stemmer.stem(target_pred_pun)
+
+        if tgt_stem == pred_stem:
+            cumulative_acc += 1
+
+        print("\nNumber of sentences checked: %s | stemps: (%s, %s) | accuracy percentage: %4.2f" %(idx + 1, tgt_stem, pred_stem, (cumulative_acc/(idx + 1)) * 100))
+
         print("===========================================================")
