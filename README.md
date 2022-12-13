@@ -31,3 +31,5 @@
 # Group project 03: Pun recommendation with Alexa
 
 - We have used a Flask server to implement the server for natural language processing functionalities. The server code is identified by `proj3_server.py`.
+- Intent handlers for Alexa can be given in `lambda_function.py`.
+- Furthermore, intent definitions, and slot type definitions of Alexa is defined in `en-US.json`.
