@@ -28,4 +28,6 @@
 - heterographic puns (where the pun and its latent target are phonologically similar) have been considered for this task.
 - The code for this project is located in `het_pun_det_and_int.py`.
 
+# Group project 03: Pun recommendation with Alexa
 
+- We have used a Flask server to implement the server for natural language processing functionalities. The server code is identified by `proj3_server.py`.
