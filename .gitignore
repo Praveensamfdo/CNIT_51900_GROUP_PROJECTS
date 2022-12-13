@@ -1,3 +1,5 @@
 __pycache__/
 envs/
 processed_data/
+models/
+lightning_logs/
