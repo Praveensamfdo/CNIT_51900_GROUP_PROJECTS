@@ -1,5 +1,4 @@
 import torch
-import random
 import torchmetrics
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -17,10 +16,10 @@ EPOCHS = 1000
 ############################################################################################################
 # Data preparation
 
-path1_test = 'datasets/subtask1-homographic-test.xml'
-path1_gold = 'datasets/subtask1-homographic-test.gold'
-path2_test = 'datasets/subtask2-homographic-test.xml'
-path2_gold =  'datasets/subtask2-homographic-test.gold'
+path1_test = 'datasets/subtask1-heterographic-test.xml'
+path1_gold = 'datasets/subtask1-heterographic-test.gold'
+path2_test = 'datasets/subtask2-heterographic-test.xml'
+path2_gold =  'datasets/subtask2-heterographic-test.gold'
 
 all_instances = {}
 pun_instances = {}
@@ -75,8 +74,6 @@ for idx in pun_instances.keys():
 
 print('Maximum sentence length: %s' % max_sent_len)
 
-# Randomize the data
-#random.shuffle(all_data)
 percent = 0.2
 train_data = all_data[:int(len(all_data) * percent)]
 test_data = all_data[int(len(all_data) * percent):]
@@ -156,7 +153,6 @@ class LightningModel(pl.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        #labels = batch['label'].to(device)
         sents = batch['sentence'].to(device)
         locations = batch['location'].to(device)
         output = self(sents)
@@ -166,18 +162,13 @@ class LightningModel(pl.LightningModule):
         gtruth[locations[0] + 1:] = 2
 
         loss = self.ce_criterion(output.reshape(output.shape[1], output.shape[2]), gtruth)
-        #loss = self.bce_criterion(output, gtruth)
-
         _, preds = torch.max(output.data, 2)
-        #preds = (output > 0.5).long()
         self.train_acc(preds, gtruth.reshape(preds.shape).long())
-        #self.train_acc(preds, locations.reshape(preds.shape).long())
         self.log('train_acc', self.train_acc, on_step=True, on_epoch=True, prog_bar=True)
         self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        #labels = batch['label'].to(device)
         sents = batch['sentence'].to(device)
         locations = batch['location'].to(device)
         output = self(sents)
@@ -187,14 +178,8 @@ class LightningModel(pl.LightningModule):
         gtruth[locations[0] + 1:] = 2
 
         loss = self.ce_criterion(output.reshape(output.shape[1], output.shape[2]), gtruth)
-        #loss = self.bce_criterion(output, gtruth)
-
         _, preds = torch.max(output.data, 2)
-
-        #preds = (output > 0.5).long()
         self.val_acc(preds, gtruth.reshape(preds.shape).long())
-
-        #self.val_acc(preds, locations.reshape(preds.shape).long())
         self.log('test_acc', self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
